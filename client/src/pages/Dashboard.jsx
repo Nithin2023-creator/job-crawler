@@ -4,13 +4,10 @@ import StatusPanel from '../components/StatusPanel';
 import CompanyCard from '../components/CompanyCard';
 import AddCompanyModal from '../components/AddCompanyModal';
 import SleepScreen from '../components/SleepScreen';
-import MobileNav from '../components/MobileNav';
-import FloatingActionButton from '../components/FloatingActionButton';
 import EmptyState from '../components/EmptyState';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { ToastContainer, showToast } from '../components/Toast';
 import { CompanyService, SettingsService } from '../services/api';
-import { Plus } from 'lucide-react';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
@@ -126,8 +123,6 @@ const Dashboard = () => {
         }
     };
 
-    // Calculate total new jobs for mobile nav badge
-    const totalNewJobs = companies.reduce((sum, c) => sum + (c.newJobsCount || 0), 0);
 
     if (loading) {
         return (
@@ -147,7 +142,7 @@ const Dashboard = () => {
     return (
         <>
             <ToastContainer />
-            <div className="container main-view" style={{ paddingBottom: 'calc(var(--spacing-xl) + 60px)' }}>
+            <div className="container main-view" style={{ paddingBottom: 'var(--spacing-xl)' }}>
                 <header className="dashboard-header">
                     <div>
                         <h1 className="title-neon">NIGHT CRAWLER</h1>
@@ -156,13 +151,13 @@ const Dashboard = () => {
                         </p>
                     </div>
 
-                    <div className="header-actions desktop-hide">
+                    <div className="header-actions" style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                         <button className="btn-secondary" onClick={() => setShowSettings(!showSettings)}>
-                            {showSettings ? 'CLOSE SETTINGS' : 'GLOBAL SETTINGS'}
+                            {showSettings ? 'CLOSE' : 'SETTINGS'}
                         </button>
                         {isHunting && (
                             <button className="btn-primary" onClick={() => setInSleepMode(true)}>
-                                ENTER SLEEP MODE
+                                SLEEP MODE
                             </button>
                         )}
                     </div>
@@ -205,10 +200,10 @@ const Dashboard = () => {
                 )}
 
                 {/* Companies Grid */}
-                <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
-                    <h2 className="title-neon">Followed Companies</h2>
-                    <button className="btn-primary desktop-hide" onClick={handleOpenAdd}>
-                        + ADD COMPANY
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                    <h2 className="title-neon" style={{ margin: 0 }}>Companies</h2>
+                    <button className="btn-primary" onClick={handleOpenAdd}>
+                        + ADD
                     </button>
                 </div>
 
@@ -242,18 +237,6 @@ const Dashboard = () => {
                     onSave={handleSaveCompany}
                     initialData={editingCompany}
                 />
-
-                {/* Floating Action Button (Mobile) */}
-                <div className="mobile-hide">
-                    <FloatingActionButton
-                        onClick={handleOpenAdd}
-                        icon={Plus}
-                        label="Add Company"
-                    />
-                </div>
-
-                {/* Mobile Bottom Navigation */}
-                <MobileNav newJobsCount={totalNewJobs} />
             </div>
         </>
     );

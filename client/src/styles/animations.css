@@ -367,3 +367,31 @@
         content: '...';
     }
 }
+
+/* TV Turn Off Effect for Delete */
+@keyframes tv-off {
+    0% {
+        transform: scale(1, 1);
+        filter: brightness(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.1, 0.05);
+        /* Stretch width, collapse height */
+        filter: brightness(5) hue-rotate(180deg);
+        /* Bright flash */
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(0, 0);
+        filter: brightness(0);
+        opacity: 0;
+    }
+}
+
+.animate-delete {
+    animation: tv-off 0.5s ease-in-out forwards;
+    pointer-events: none;
+}

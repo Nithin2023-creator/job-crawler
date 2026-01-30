@@ -41,10 +41,28 @@ const CompanyCard = ({ company, onDelete, onUpdate, refreshTrigger }) => {
         }
     };
 
-    const handleMarkViewed = (id) => {
+    const handleMarkViewed = async (id) => {
+        // Optimistic update
         setJobs(prev => prev.map(job =>
             job._id === id ? { ...job, isFresh: false } : job
         ));
+
+        try {
+            const res = await JobService.markViewed(id);
+            if (!res.success) {
+                // Rollback on API error
+                setJobs(prev => prev.map(job =>
+                    job._id === id ? { ...job, isFresh: true } : job
+                ));
+                console.error('Failed to mark job as viewed:', res);
+            }
+        } catch (error) {
+            // Rollback on network error
+            setJobs(prev => prev.map(job =>
+                job._id === id ? { ...job, isFresh: true } : job
+            ));
+            console.error('Error marking job as viewed:', error);
+        }
     };
 
     const handleJobDelete = (id) => {
@@ -68,42 +86,82 @@ const CompanyCard = ({ company, onDelete, onUpdate, refreshTrigger }) => {
         : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>GLOBAL DEFAULTS</span>;
 
     return (
-        <div className="company-card" style={{
-            background: 'rgba(10, 10, 10, 0.7)',
+        <div className="company-card hover-lift" style={{
+            background: 'rgba(10, 10, 10, 0.85)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.05)',
-            borderRadius: '12px',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: company.newJobsCount > 0
+                ? '1px solid rgba(255, 0, 85, 0.2)'
+                : '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
-            transition: 'all 0.3s ease',
-            position: 'relative'
+            transition: 'all var(--transition-base)',
+            position: 'relative',
+            boxShadow: company.newJobsCount > 0
+                ? '0 0 20px rgba(255, 0, 85, 0.15)'
+                : 'var(--shadow-card)'
         }}>
             {/* Decoration Line */}
             <div style={{
-                position: 'absolute', left: 0, top: 0, bottom: 0, width: '2px',
-                background: company.newJobsCount > 0 ? 'var(--neon-pink)' : 'var(--glass-border)',
-                boxShadow: company.newJobsCount > 0 ? '0 0 10px var(--neon-pink)' : 'none'
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px',
+                background: company.newJobsCount > 0
+                    ? 'linear-gradient(180deg, var(--neon-pink), var(--danger-red))'
+                    : 'linear-gradient(180deg, var(--primary-neon), var(--secondary-neon))',
+                boxShadow: company.newJobsCount > 0
+                    ? '0 0 15px rgba(255, 0, 85, 0.5)'
+                    : '0 0 10px rgba(0, 243, 255, 0.3)',
+                opacity: company.newJobsCount > 0 ? 1 : 0.5,
+                animation: company.newJobsCount > 0 ? 'pulse-glow 2s ease-in-out infinite' : 'none'
             }}></div>
 
             {/* Header Section */}
-            <div className="card-header" style={{
-                padding: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: expanded ? 'rgba(255,255,255,0.02)' : 'transparent'
+            <div className="card-header mobile-stack" style={{
+                padding: 'var(--spacing-lg)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: expanded ? 'rgba(255,255,255,0.03)' : 'transparent',
+                gap: 'var(--spacing-md)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '25px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-lg)', flex: 1 }}>
                     {/* Logo Plate */}
                     <div className="company-logo" style={{
-                        width: '70px', height: '70px',
-                        borderRadius: '16px',
-                        background: '#050505',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '70px',
+                        height: '70px',
+                        minWidth: '70px',
+                        borderRadius: 'var(--radius-xl)',
+                        background: company.logoUrl
+                            ? '#050505'
+                            : 'linear-gradient(135deg, var(--primary-neon) 0%, var(--secondary-neon) 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         overflow: 'hidden',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)'
+                        border: company.logoUrl
+                            ? '1px solid rgba(255,255,255,0.1)'
+                            : 'none',
+                        boxShadow: company.logoUrl
+                            ? 'inset 0 0 20px rgba(0,0,0,0.8)'
+                            : '0 4px 15px rgba(0, 243, 255, 0.3)',
+                        transition: 'all var(--transition-base)'
                     }}>
-                        {company.logoUrl
-                            ? <img src={company.logoUrl} alt={company.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <Building size={32} color="#444" />
-                        }
+                        {company.logoUrl ? (
+                            <img
+                                src={company.logoUrl}
+                                alt={company.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <span style={{
+                                fontSize: '2rem',
+                                fontWeight: 'bold',
+                                fontFamily: 'var(--font-mono)',
+                                color: '#000',
+                                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                            }}>
+                                {company.name[0].toUpperCase()}
+                            </span>
+                        )}
                     </div>
 
                     {/* Info */}
@@ -117,15 +175,22 @@ const CompanyCard = ({ company, onDelete, onUpdate, refreshTrigger }) => {
                                 {company.name}
                             </h3>
                             {company.newJobsCount > 0 && (
-                                <div style={{
-                                    background: 'var(--neon-pink)', color: '#fff',
-                                    padding: '2px 8px', borderRadius: '4px',
-                                    fontSize: '0.65rem', fontWeight: 'bold',
+                                <div className="animate-pulse-glow" style={{
+                                    background: 'linear-gradient(135deg, var(--neon-pink), var(--danger-red))',
+                                    color: '#fff',
+                                    padding: '4px 10px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 'bold',
                                     fontFamily: 'var(--font-mono)',
-                                    display: 'flex', alignItems: 'center', gap: '4px',
-                                    boxShadow: '0 0 10px rgba(255, 0, 85, 0.4)'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    boxShadow: '0 0 15px rgba(255, 0, 85, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3)',
+                                    letterSpacing: '0.5px'
                                 }}>
-                                    <Zap size={10} fill="currentColor" /> {company.newJobsCount} NEW
+                                    <Zap size={12} fill="currentColor" strokeWidth={2.5} />
+                                    {company.newJobsCount} NEW
                                 </div>
                             )}
                         </div>

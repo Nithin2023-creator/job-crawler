@@ -373,15 +373,19 @@ h6 {
     border-radius: 50%;
     transition: all var(--transition-fast);
     display: flex;
+    min-width: 36px;
+    min-height: 36px;
+    cursor: pointer;
+    display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-dim);
+    transition: all var(--transition-base);
 }
 
 .btn-icon:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-main);
-    transform: scale(1.1);
+    background: rgba(0, 0, 0, 0.9);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
 }
 
 .btn-icon:active {
