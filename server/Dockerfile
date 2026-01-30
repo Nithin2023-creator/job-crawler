@@ -1,22 +1,16 @@
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Switch to root to install dependencies
 USER root
-
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Critical: Use the Chrome installed in the image, don't download another one
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
 COPY package*.json ./
+# Use npm install to regenerate lockfile logic if needed
+RUN npm install
 
-# Install dependencie (npm ci is faster and cleaner for CI/CD)
-RUN npm ci
-
-# Copy source code
 COPY . .
 
-# Expose port (Render sets PORT env var, but good to document)
-EXPOSE 5000
-
-# Start the application
 CMD ["node", "server.js"]
