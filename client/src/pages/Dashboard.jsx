@@ -4,7 +4,13 @@ import StatusPanel from '../components/StatusPanel';
 import CompanyCard from '../components/CompanyCard';
 import AddCompanyModal from '../components/AddCompanyModal';
 import SleepScreen from '../components/SleepScreen';
+import MobileNav from '../components/MobileNav';
+import FloatingActionButton from '../components/FloatingActionButton';
+import EmptyState from '../components/EmptyState';
+import LoadingSkeleton from '../components/LoadingSkeleton';
+import { ToastContainer, showToast } from '../components/Toast';
 import { CompanyService, SettingsService } from '../services/api';
+import { Plus } from 'lucide-react';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
@@ -60,33 +66,46 @@ const Dashboard = () => {
     };
 
     const handleSaveCompany = async (companyData) => {
+        const toastId = showToast.loading(editingCompany ? 'Updating company...' : 'Adding company...');
         try {
             if (editingCompany) {
                 // Update
                 const updated = await CompanyService.update(editingCompany._id, companyData);
                 setCompanies(prev => prev.map(c => c._id === editingCompany._id ? { ...updated, newJobsCount: c.newJobsCount } : c));
+                showToast.dismiss(toastId);
+                showToast.success('Company updated successfully!');
             } else {
                 // Create
                 const newCompany = await CompanyService.create(companyData);
                 setCompanies(prev => [...prev, { ...newCompany, newJobsCount: 0 }]);
+                showToast.dismiss(toastId);
+                showToast.success('Company added successfully!');
             }
         } catch (error) {
+            showToast.dismiss(toastId);
+            showToast.error('Failed to save company. Please try again.');
             console.error("Failed to save company", error);
         }
     };
 
     const handleDeleteCompany = async (id) => {
         if (!window.confirm("Delete this company and its configuration?")) return;
+        const toastId = showToast.loading('Deleting company...');
         try {
             await CompanyService.delete(id);
             setCompanies(prev => prev.filter(c => c._id !== id));
+            showToast.dismiss(toastId);
+            showToast.success('Company deleted successfully!');
         } catch (error) {
+            showToast.dismiss(toastId);
+            showToast.error('Failed to delete company. Please try again.');
             console.error("Failed to delete company", error);
         }
     };
 
     const handleUpdateSettings = async (e) => {
         e.preventDefault();
+        const toastId = showToast.loading('Saving settings...');
         try {
             const tagsArray = typeof settings.defaultTags === 'string'
                 ? settings.defaultTags.split(',').map(t => t.trim()).filter(Boolean)
@@ -96,112 +115,147 @@ const Dashboard = () => {
                 defaultTags: tagsArray,
                 schedule: settings.schedule
             });
-            alert('Settings Saved!');
+            showToast.dismiss(toastId);
+            showToast.success('Settings saved successfully!');
             setShowSettings(false);
             fetchData();
         } catch (error) {
+            showToast.dismiss(toastId);
+            showToast.error('Failed to save settings. Please try again.');
             console.error("Failed to update settings", error);
         }
     };
 
-    if (loading) return <div className="container">Initializing System...</div>;
+    // Calculate total new jobs for mobile nav badge
+    const totalNewJobs = companies.reduce((sum, c) => sum + (c.newJobsCount || 0), 0);
+
+    if (loading) {
+        return (
+            <div className="container">
+                <div className="loading-container">
+                    <div className="loading-spinner" />
+                    <p>INITIALIZING SYSTEM...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (inSleepMode) {
         return <SleepScreen onWake={() => setInSleepMode(false)} nextRunTime={status?.nextRunIn} />;
     }
 
     return (
-        <div className="container main-view">
-            <header style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h1 className="title-neon" style={{ fontSize: '2.5rem' }}>NIGHT CRAWLER</h1>
-                    <p style={{ color: 'var(--text-dim)', marginTop: '5px' }}>COMPANY-CENTRIC JOB HUNTER // V2.0</p>
-                </div>
+        <>
+            <ToastContainer />
+            <div className="container main-view" style={{ paddingBottom: 'calc(var(--spacing-xl) + 60px)' }}>
+                <header className="dashboard-header">
+                    <div>
+                        <h1 className="title-neon">NIGHT CRAWLER</h1>
+                        <p style={{ color: 'var(--text-dim)', marginTop: '8px', fontFamily: 'var(--font-mono)', fontSize: 'var(--font-sm)' }}>
+                            COMPANY-CENTRIC JOB HUNTER // V2.0
+                        </p>
+                    </div>
 
-                <div style={{ display: 'flex', gap: '15px' }}>
-                    <button className="btn-secondary" onClick={() => setShowSettings(!showSettings)}>
-                        {showSettings ? 'CLOSE SETTINGS' : 'GLOBAL SETTINGS'}
-                    </button>
-                    {isHunting && (
-                        <button className="btn-primary" onClick={() => setInSleepMode(true)}>
-                            ENTER SLEEP MODE
+                    <div className="header-actions desktop-hide">
+                        <button className="btn-secondary" onClick={() => setShowSettings(!showSettings)}>
+                            {showSettings ? 'CLOSE SETTINGS' : 'GLOBAL SETTINGS'}
                         </button>
-                    )}
+                        {isHunting && (
+                            <button className="btn-primary" onClick={() => setInSleepMode(true)}>
+                                ENTER SLEEP MODE
+                            </button>
+                        )}
+                    </div>
+                </header>
+
+                <StatusPanel
+                    status={status}
+                    isHunting={isHunting}
+                    onStart={startHunt}
+                    onStop={stopHunt}
+                    onTrigger={triggerHunt}
+                />
+
+                {/* Global Settings Panel */}
+                {showSettings && (
+                    <div className="settings-panel">
+                        <h3>GLOBAL CONFIGURATION</h3>
+                        <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div>
+                                <label>Default Search Tags (Comma separated)</label>
+                                <input
+                                    type="text"
+                                    value={Array.isArray(settings.defaultTags) ? settings.defaultTags.join(', ') : settings.defaultTags}
+                                    onChange={(e) => setSettings({ ...settings, defaultTags: e.target.value })}
+                                    placeholder="e.g. React, Node.js, Full Stack"
+                                />
+                            </div>
+                            <div>
+                                <label>Cron Schedule</label>
+                                <input
+                                    type="text"
+                                    value={settings.schedule}
+                                    onChange={(e) => setSettings({ ...settings, schedule: e.target.value })}
+                                    placeholder="e.g. 0 */6 * * *"
+                                />
+                            </div>
+                            <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>SAVE SETTINGS</button>
+                        </form>
+                    </div>
+                )}
+
+                {/* Companies Grid */}
+                <div className="mobile-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
+                    <h2 className="title-neon">Followed Companies</h2>
+                    <button className="btn-primary desktop-hide" onClick={handleOpenAdd}>
+                        + ADD COMPANY
+                    </button>
                 </div>
-            </header>
 
-            <StatusPanel
-                status={status}
-                isHunting={isHunting}
-                onStart={startHunt}
-                onStop={stopHunt}
-                onTrigger={triggerHunt}
-            />
+                {loadingData ? (
+                    <LoadingSkeleton type="company" count={3} />
+                ) : companies.length === 0 ? (
+                    <EmptyState
+                        type="add"
+                        title="No Companies Tracked"
+                        message="Start by adding companies you're interested in. We'll hunt for jobs automatically."
+                        action="+ ADD YOUR FIRST COMPANY"
+                        onAction={handleOpenAdd}
+                    />
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                        {companies.map((company, index) => (
+                            <CompanyCard
+                                key={company._id}
+                                company={company}
+                                onDelete={handleDeleteCompany}
+                                onUpdate={handleOpenEdit}
+                                refreshTrigger={lastCrawlTime}
+                            />
+                        ))}
+                    </div>
+                )}
 
-            {/* Global Settings Panel */}
-            {showSettings && (
-                <div className="card-neon" style={{ marginBottom: '30px', padding: '20px', border: '1px dashed var(--neon-blue)' }}>
-                    <h3 style={{ marginTop: 0, color: 'var(--neon-blue)' }}>Global Configuration</h3>
-                    <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px' }}>Default Search Tags (Comma separated)</label>
-                            <input
-                                type="text"
-                                value={Array.isArray(settings.defaultTags) ? settings.defaultTags.join(', ') : settings.defaultTags}
-                                onChange={(e) => setSettings({ ...settings, defaultTags: e.target.value })}
-                                style={{ width: '100%', padding: '10px', background: '#111', border: '1px solid #333', color: '#fff' }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px' }}>Cron Schedule</label>
-                            <input
-                                type="text"
-                                value={settings.schedule}
-                                onChange={(e) => setSettings({ ...settings, schedule: e.target.value })}
-                                style={{ width: '100%', padding: '10px', background: '#111', border: '1px solid #333', color: '#fff' }}
-                            />
-                        </div>
-                        <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>SAVE SETTINGS</button>
-                    </form>
+                <AddCompanyModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleSaveCompany}
+                    initialData={editingCompany}
+                />
+
+                {/* Floating Action Button (Mobile) */}
+                <div className="mobile-hide">
+                    <FloatingActionButton
+                        onClick={handleOpenAdd}
+                        icon={Plus}
+                        label="Add Company"
+                    />
                 </div>
-            )}
 
-            {/* Companies Grid */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 className="title-neon">Followed Companies</h2>
-                <button className="btn-primary" onClick={handleOpenAdd}>
-                    + ADD COMPANY
-                </button>
+                {/* Mobile Bottom Navigation */}
+                <MobileNav newJobsCount={totalNewJobs} />
             </div>
-
-            {loadingData ? (
-                <div style={{ textAlign: 'center', padding: '50px' }}>Loading Companies...</div>
-            ) : companies.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '50px', border: '1px dashed #555', borderRadius: '10px' }}>
-                    <h3>No companies tracked yet.</h3>
-                    <p style={{ color: '#888' }}>Add a company to start hunting.</p>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {companies.map(company => (
-                        <CompanyCard
-                            key={company._id}
-                            company={company}
-                            onDelete={handleDeleteCompany}
-                            onUpdate={handleOpenEdit}
-                            refreshTrigger={lastCrawlTime}
-                        />
-                    ))}
-                </div>
-            )}
-
-            <AddCompanyModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveCompany}
-                initialData={editingCompany}
-            />
-        </div>
+        </>
     );
 };
 

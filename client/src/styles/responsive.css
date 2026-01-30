@@ -1,4 +1,9 @@
-/* Mobile-Responsive Typography */
+/* ========================================
+   RESPONSIVE DESIGN SYSTEM
+   Mobile-First Approach
+   ======================================== */
+
+/* Base Typography (Mobile) */
 h1 {
     font-size: var(--font-2xl);
     line-height: 1.2;
@@ -19,6 +24,23 @@ h4 {
     line-height: 1.5;
 }
 
+p {
+    font-size: var(--font-base);
+    line-height: 1.6;
+}
+
+/* ========================================
+   BREAKPOINTS
+   ======================================== */
+
+/* Small Mobile: 375px and up */
+@media (min-width: 375px) {
+    h1 {
+        font-size: var(--font-3xl);
+    }
+}
+
+/* Tablet: 768px and up */
 @media (min-width: 768px) {
     h1 {
         font-size: var(--font-4xl);
@@ -37,8 +59,29 @@ h4 {
     }
 }
 
-/* Responsive utility classes */
+/* Desktop: 1024px and up */
+@media (min-width: 1024px) {
+    h1 {
+        font-size: 3rem;
+        /* 48px */
+    }
+}
+
+/* Wide Desktop: 1440px and up */
+@media (min-width: 1440px) {
+    h1 {
+        font-size: 3.5rem;
+        /* 56px */
+    }
+}
+
+/* ========================================
+   MOBILE-SPECIFIC UTILITIES
+   ======================================== */
+
 @media (max-width: 767px) {
+
+    /* Layout */
     .mobile-stack {
         flex-direction: column !important;
     }
@@ -49,5 +92,193 @@ h4 {
 
     .mobile-hide {
         display: none !important;
+    }
+
+    .mobile-text-center {
+        text-align: center !important;
+    }
+
+    /* Spacing */
+    .mobile-p-sm {
+        padding: var(--spacing-sm) !important;
+    }
+
+    .mobile-p-md {
+        padding: var(--spacing-md) !important;
+    }
+
+    .mobile-gap-sm {
+        gap: var(--spacing-sm) !important;
+    }
+
+    /* Typography */
+    .mobile-text-sm {
+        font-size: var(--font-sm) !important;
+    }
+
+    .mobile-text-xs {
+        font-size: var(--font-xs) !important;
+    }
+}
+
+/* Desktop-only utilities */
+@media (min-width: 768px) {
+    .desktop-hide {
+        display: none !important;
+    }
+
+    .desktop-flex {
+        display: flex !important;
+    }
+
+    .desktop-grid {
+        display: grid !important;
+    }
+}
+
+/* ========================================
+   TOUCH-OPTIMIZED LAYOUTS
+   ======================================== */
+
+@media (max-width: 767px) {
+
+    /* Ensure all interactive elements meet minimum touch target */
+    button,
+    a,
+    input,
+    select,
+    textarea {
+        min-height: var(--touch-target);
+    }
+
+    /* Increase padding for better touch targets */
+    .btn-primary,
+    .btn-secondary {
+        padding: 14px 20px;
+    }
+
+    /* Stack navigation items vertically */
+    nav {
+        flex-direction: column;
+    }
+
+    /* Full-width cards on mobile */
+    .card-neon {
+        width: 100%;
+    }
+}
+
+/* ========================================
+   SAFE AREA SUPPORT (Notched Devices)
+   ======================================== */
+
+@supports (padding: max(0px)) {
+    body {
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+    }
+
+    .container {
+        padding-left: max(var(--spacing-md), env(safe-area-inset-left));
+        padding-right: max(var(--spacing-md), env(safe-area-inset-right));
+    }
+
+    /* Bottom navigation safe area */
+    .mobile-nav {
+        padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
+    }
+}
+
+/* ========================================
+   GRID SYSTEMS
+   ======================================== */
+
+/* Responsive Grid */
+.grid-responsive {
+    display: grid;
+    gap: var(--spacing-md);
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+    .grid-responsive {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-lg);
+    }
+}
+
+@media (min-width: 1024px) {
+    .grid-responsive {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1440px) {
+    .grid-responsive {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Auto-fit grid */
+.grid-auto {
+    display: grid;
+    gap: var(--spacing-md);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* ========================================
+   ORIENTATION-SPECIFIC
+   ======================================== */
+
+@media (orientation: landscape) and (max-height: 500px) {
+
+    /* Reduce vertical spacing in landscape mobile */
+    .container {
+        padding-top: var(--spacing-sm);
+        padding-bottom: var(--spacing-sm);
+    }
+
+    h1 {
+        font-size: var(--font-xl);
+    }
+
+    h2 {
+        font-size: var(--font-lg);
+    }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+
+    .mobile-nav,
+    .btn-primary,
+    .btn-secondary,
+    button {
+        display: none;
+    }
+
+    .card-neon {
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+}
+
+/* ========================================
+   HIGH DPI DISPLAYS
+   ======================================== */
+
+@media (-webkit-min-device-pixel-ratio: 2),
+(min-resolution: 192dpi) {
+
+    /* Sharper borders on retina displays */
+    .card-neon {
+        border-width: 0.5px;
     }
 }
