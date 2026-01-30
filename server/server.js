@@ -38,6 +38,11 @@ app.use((req, res, next) => {
 // ROUTES
 // ============================================
 
+// Root Route
+app.get('/', (req, res) => {
+    res.send('🌙 Night Crawler Server is Running! 🚀');
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({
