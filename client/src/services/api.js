@@ -1,7 +1,7 @@
 // Use Vercel env var if set, otherwise use production URL (in prod) or local proxy (in dev)
 const isDev = import.meta.env.DEV;
 const fallback = isDev ? '/api' : 'https://job-crawler-two.vercel.app/api';
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || fallback).replace(/\/$/, '');
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL || fallback).replace(/\/$/, '');
 
 export const CompanyService = {
     getAll: async () => {
