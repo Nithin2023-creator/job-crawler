@@ -142,6 +142,36 @@ router.patch('/:id/mark-viewed', async (req, res, next) => {
 });
 
 /**
+ * @route   PATCH /api/jobs/:id/star
+ * @desc    Toggle star (favorite) status on a job
+ */
+router.patch('/:id/star', async (req, res, next) => {
+    try {
+        const { isStarred } = req.body;
+
+        const job = await Job.findByIdAndUpdate(
+            req.params.id,
+            { isStarred: isStarred },
+            { new: true }
+        );
+
+        if (!job) {
+            return res.status(404).json({
+                success: false,
+                error: 'Job not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: job
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * @route   DELETE /api/jobs/:id
  * @desc    Delete a job
  */

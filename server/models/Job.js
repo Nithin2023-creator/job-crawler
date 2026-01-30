@@ -35,6 +35,10 @@ const JobSchema = new mongoose.Schema({
         type: Boolean,
         default: true  // Flag for morning brief
     },
+    isStarred: {
+        type: Boolean,
+        default: false  // Flag for favorited jobs
+    },
     keywords: [{
         type: String,
         trim: true
@@ -50,6 +54,7 @@ const JobSchema = new mongoose.Schema({
 // Index for efficient morning brief queries (jobs in last 12 hours)
 JobSchema.index({ detectedAt: -1 });
 JobSchema.index({ isFresh: 1, detectedAt: -1 });
+JobSchema.index({ isStarred: 1, detectedAt: -1 });
 
 // Static method to get morning brief (jobs from last 12 hours)
 JobSchema.statics.getMorningBrief = async function () {

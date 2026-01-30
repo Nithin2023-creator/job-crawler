@@ -8,7 +8,7 @@ import { CompanyService, SettingsService } from '../services/api';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
-    const { status, loading, isHunting, startHunt, stopHunt, triggerHunt } = useCrawler();
+    const { status, loading, isHunting, startHunt, stopHunt, triggerHunt, lastCrawlTime } = useCrawler();
     const [inSleepMode, setInSleepMode] = useState(false);
 
     // Data State
@@ -40,6 +40,14 @@ const Dashboard = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Auto-refresh companies when crawl completes
+    useEffect(() => {
+        if (lastCrawlTime) {
+            console.log('📊 Refreshing companies after crawl completion...');
+            fetchData();
+        }
+    }, [lastCrawlTime]);
 
     const handleOpenAdd = () => {
         setEditingCompany(null);
@@ -181,6 +189,7 @@ const Dashboard = () => {
                             company={company}
                             onDelete={handleDeleteCompany}
                             onUpdate={handleOpenEdit}
+                            refreshTrigger={lastCrawlTime}
                         />
                     ))}
                 </div>

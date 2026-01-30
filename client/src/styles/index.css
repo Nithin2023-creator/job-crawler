@@ -23,6 +23,36 @@
     /* Shadows */
     --shadow-neon-blue: 0 0 10px rgba(0, 243, 255, 0.3);
     --shadow-neon-pink: 0 0 10px rgba(255, 0, 85, 0.3);
+
+    /* Responsive Spacing */
+    --spacing-xs: 8px;
+    --spacing-sm: 12px;
+    --spacing-md: 20px;
+    --spacing-lg: 30px;
+    --spacing-xl: 40px;
+
+    /* Touch Targets (Mobile-first) */
+    --touch-target-sm: 36px;
+    --touch-target: 44px;
+    --touch-target-lg: 48px;
+
+    /* Responsive Typography */
+    --font-xs: 0.75rem;
+    /* 12px */
+    --font-sm: 0.875rem;
+    /* 14px */
+    --font-base: 1rem;
+    /* 16px */
+    --font-lg: 1.125rem;
+    /* 18px */
+    --font-xl: 1.25rem;
+    /* 20px */
+    --font-2xl: 1.5rem;
+    /* 24px */
+    --font-3xl: 1.875rem;
+    /* 30px */
+    --font-4xl: 2.25rem;
+    /* 36px */
 }
 
 * {
@@ -64,9 +94,14 @@ body {
 /* Utilities */
 .container {
     max-width: 1400px;
-    /* Wider container */
     margin: 0 auto;
-    padding: 30px;
+    padding: var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+    .container {
+        padding: var(--spacing-lg);
+    }
 }
 
 .title-neon {
@@ -103,8 +138,10 @@ body {
     background: rgba(0, 243, 255, 0.1);
     color: var(--primary-neon);
     border: 1px solid var(--primary-neon);
-    padding: 10px 24px;
+    padding: 12px 24px;
+    min-height: var(--touch-target);
     font-family: var(--font-mono);
+    font-size: var(--font-sm);
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -121,12 +158,22 @@ body {
     box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
 }
 
+@media (max-width: 767px) {
+    .btn-primary {
+        width: 100%;
+        font-size: var(--font-xs);
+        padding: 14px 20px;
+    }
+}
+
 .btn-secondary {
     background: transparent;
     color: var(--text-dim);
     border: 1px solid #333;
-    padding: 10px 20px;
+    padding: 12px 20px;
+    min-height: var(--touch-target);
     font-family: var(--font-mono);
+    font-size: var(--font-sm);
     text-transform: uppercase;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -138,11 +185,21 @@ body {
     color: #fff;
 }
 
+@media (max-width: 767px) {
+    .btn-secondary {
+        width: 100%;
+        font-size: var(--font-xs);
+        padding: 14px 16px;
+    }
+}
+
 .btn-icon {
     background: transparent;
     border: none;
     cursor: pointer;
     padding: 8px;
+    min-width: var(--touch-target-sm);
+    min-height: var(--touch-target-sm);
     border-radius: 50%;
     transition: all 0.2s ease;
     display: flex;

@@ -7,6 +7,7 @@ export const CrawlerProvider = ({ children }) => {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isHunting, setIsHunting] = useState(false);
+    const [lastCrawlTime, setLastCrawlTime] = useState(null);
 
     // Fetch initial data
     const refreshData = async () => {
@@ -33,24 +34,34 @@ export const CrawlerProvider = ({ children }) => {
 
     useEffect(() => {
         refreshData();
-        // Poll status every 30 seconds
+        // Poll for status updates every 30 seconds
+
         const interval = setInterval(() => {
-            // Only refresh if not in sleep mode (save bandwidth)
-            // Actually we might want updates IN sleep mode to show status?
-            // Let's poll gently.
+            // Use fetch directly to avoid creating new intervals on state change
             fetch('/api/hunt/status')
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
-                        setStatus(data.data);
-                        setIsHunting(data.data.isActive);
+                        const newStatus = data.data;
+
+                        // Use functional update to get previous status without dependency
+                        setStatus(prevStatus => {
+                            // Detect crawl completion: status was active, now inactive with lastRunTime updated
+                            if (prevStatus && prevStatus.isActive && !newStatus.isActive && newStatus.lastRunTime) {
+                                console.log('🔔 Crawl completed! Triggering refresh...');
+                                setLastCrawlTime(Date.now());
+                            }
+                            return newStatus;
+                        });
+
+                        setIsHunting(newStatus.isActive);
                     }
                 })
                 .catch(console.error);
         }, 30000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, []); // Empty dependency array - only run once on mount
 
     const updateConfig = async (newConfig) => {
         try {
@@ -118,6 +129,7 @@ export const CrawlerProvider = ({ children }) => {
             status,
             loading,
             isHunting,
+            lastCrawlTime,
             refreshData,
             updateConfig,
             startHunt,

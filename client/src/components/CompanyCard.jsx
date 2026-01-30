@@ -3,7 +3,7 @@ import { JobService } from '../services/api';
 import JobCard from './JobCard';
 import { ChevronDown, Edit2, Trash2, Building, Zap } from 'lucide-react';
 
-const CompanyCard = ({ company, onDelete, onUpdate }) => {
+const CompanyCard = ({ company, onDelete, onUpdate, refreshTrigger }) => {
     const [expanded, setExpanded] = useState(false);
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -16,6 +16,15 @@ const CompanyCard = ({ company, onDelete, onUpdate }) => {
             fetchJobs();
         }
     }, [expanded]);
+
+    // Auto-refresh jobs when crawl completes (only if expanded)
+    useEffect(() => {
+        if (refreshTrigger && expanded) {
+            console.log(`🔄 Auto-refreshing jobs for ${company.name}...`);
+            setJobsFetched(false); // Reset flag to force re-fetch
+            fetchJobs();
+        }
+    }, [refreshTrigger]);
 
     const fetchJobs = async () => {
         setLoading(true);
@@ -36,6 +45,10 @@ const CompanyCard = ({ company, onDelete, onUpdate }) => {
         setJobs(prev => prev.map(job =>
             job._id === id ? { ...job, isFresh: false } : job
         ));
+    };
+
+    const handleJobDelete = (id) => {
+        setJobs(prev => prev.filter(job => job._id !== id));
     };
 
     const tagsDisplay = (company.customTags && company.customTags.length > 0)
@@ -203,7 +216,13 @@ const CompanyCard = ({ company, onDelete, onUpdate }) => {
                     ) : (
                         <div className="job-list-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
                             {jobs.map(job => (
-                                <JobCard key={job._id} job={job} onMarkViewed={handleMarkViewed} compact={true} />
+                                <JobCard
+                                    key={job._id}
+                                    job={job}
+                                    onMarkViewed={handleMarkViewed}
+                                    onDelete={handleJobDelete}
+                                    compact={true}
+                                />
                             ))}
                         </div>
                     )}

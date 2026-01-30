@@ -54,5 +54,19 @@ export const JobService = {
             method: 'PATCH'
         });
         return res.json();
+    },
+    starJob: async (id, isStarred) => {
+        const res = await fetch(`${API_BASE}/jobs/${id}/star`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isStarred })
+        });
+        return res.json();
+    },
+    deleteJob: async (id) => {
+        const res = await fetch(`${API_BASE}/jobs/${id}`, {
+            method: 'DELETE'
+        });
+        return res.json();
     }
 };
