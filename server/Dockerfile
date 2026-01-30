@@ -3,12 +3,13 @@ FROM ghcr.io/puppeteer/puppeteer:latest
 USER root
 WORKDIR /app
 
-# Critical: Use the Chrome installed in the image, don't download another one
+# Skip downloading Chrome because the base image already has it!
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+
+# Note: We do NOT set PUPPETEER_EXECUTABLE_PATH manually anymore.
+# The base image (ghcr.io/puppeteer/puppeteer) sets it to the correct location automatically.
 
 COPY package*.json ./
-# Use npm install to regenerate lockfile logic if needed
 RUN npm install
 
 COPY . .
