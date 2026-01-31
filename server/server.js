@@ -47,7 +47,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging
 app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.path}`);
+    // Skip logging for health checks to keep logs clean
+    if (req.path !== '/api/health') {
+        console.log(`📥 ${req.method} ${req.path}`);
+    }
     next();
 });
 

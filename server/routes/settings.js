@@ -14,12 +14,13 @@ router.get('/', async (req, res) => {
 
 // UPDATE settings
 router.post('/', async (req, res) => {
-    const { defaultTags, schedule } = req.body;
+    const { defaultTags, schedule, userPersona } = req.body;
     try {
         const settings = await Settings.getSettings();
 
         if (defaultTags) settings.defaultTags = defaultTags;
         if (schedule) settings.schedule = schedule;
+        if (userPersona) settings.userPersona = userPersona;
 
         const updatedSettings = await settings.save();
         res.json(updatedSettings);
