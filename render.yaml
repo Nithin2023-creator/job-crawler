@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: night-crawler-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: chmod +x ./render-build.sh && ./render-build.sh
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "20.11.0"
+      - key: HEADLESS
+        value: "true"
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/puppeteer
+      - key: MONGODB_URI
+        sync: false    # You set this manually in Render dashboard
+      - key: GROQ_API_KEY
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: APIFY_API_TOKEN
+        sync: false
+      - key: RAPID_API_KEY
+        sync: false

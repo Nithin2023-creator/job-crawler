@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Job = require('../models/Job');
 const CrawlerLog = require('../models/CrawlerLog');
+const cleanup = require('../utils/cleanup');
 
 /**
  * @route   GET /api/jobs/morning-brief
@@ -220,6 +221,41 @@ router.get('/logs/today', async (req, res, next) => {
                 summary,
                 logs
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @route   POST /api/jobs/cleanup
+ * @desc    Manually trigger stale job cleanup
+ */
+router.post('/cleanup', async (req, res, next) => {
+    try {
+        const days = parseInt(req.query.days) || 7;
+        const deletedCount = await cleanup.purgeUnseen(days);
+        res.json({
+            success: true,
+            message: `🧹 Purged ${deletedCount} stale jobs (older than ${days} days)`,
+            data: { deletedCount }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @route   DELETE /api/jobs/company/:companyId
+ * @desc    Delete all jobs for a specific company
+ */
+router.delete('/company/:companyId', async (req, res, next) => {
+    try {
+        const result = await Job.deleteMany({ companyId: req.params.companyId });
+        res.json({
+            success: true,
+            message: `Deleted ${result.deletedCount} jobs`,
+            data: { deletedCount: result.deletedCount }
         });
     } catch (error) {
         next(error);

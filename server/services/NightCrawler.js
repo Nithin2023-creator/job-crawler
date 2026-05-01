@@ -330,52 +330,120 @@ class NightCrawler {
     }
 
     /**
-     * Save jobs to database with deduplication
+     * Deep scrape: Navigate into a job listing to extract full details
      */
-    async saveJobs(jobs, companyName) {
-        let savedCount = 0;
-
-        for (const job of jobs) {
-            try {
-                // Check if job already exists
-                const existingJob = await Job.findOne({ link: job.link });
-
-                if (!existingJob) {
-                    await Job.create({
-                        title: job.title,
-                        company: companyName,
-                        companyId: job.companyId,
-                        link: job.link,
-                        location: job.location,
-                        sourceUrl: job.sourceUrl,
-                        keywords: job.keywords,
-                        isFresh: true,
-                        detectedAt: new Date()
-                    });
-                    savedCount++;
-                    console.log(`💾 NightCrawler: Saved new job - ${job.title} at ${companyName}`);
-                } else {
-                    // Start: Logic for "Reviving/Adopting" jobs if Company was re-added
-                    // If the existing job belongs to a different companyId (or null/undefined), update it
-                    if (!existingJob.companyId || existingJob.companyId.toString() !== job.companyId.toString()) {
-                        console.log(`♻️ NightCrawler: Adopting orphan job - ${job.title} to ${companyName}`);
-                        existingJob.companyId = job.companyId;
-                        existingJob.company = companyName;
-                        existingJob.isFresh = true; // Make it pop up again
-                        existingJob.detectedAt = new Date(); // Bump time to top of list
-                        await existingJob.save();
-                        savedCount++;
+    async deepScrapeJob(page, jobUrl) {
+        try {
+            await page.goto(jobUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+            
+            // Wait for description content to load
+            await Promise.race([
+                page.waitForSelector('[class*="description"]', { timeout: 8000 }),
+                page.waitForSelector('[class*="details"]', { timeout: 8000 }),
+                page.waitForSelector('article', { timeout: 8000 }),
+                new Promise(resolve => setTimeout(resolve, 5000))
+            ]);
+            
+            const details = await page.evaluate(() => {
+                // Extract description from common patterns
+                const descSelectors = [
+                    '[class*="description"]', '[class*="job-detail"]',
+                    '[class*="posting-detail"]', 'article',
+                    '[data-automation*="description"]', '.content-area'
+                ];
+                
+                let description = '';
+                for (const sel of descSelectors) {
+                    const el = document.querySelector(sel);
+                    if (el && el.textContent.trim().length > 100) {
+                        description = el.textContent.trim();
+                        break;
                     }
                 }
+                
+                // Extract structured data
+                const getText = (selectors) => {
+                    for (const sel of selectors) {
+                        const el = document.querySelector(sel);
+                        if (el) return el.textContent.trim();
+                    }
+                    return '';
+                };
+                
+                return {
+                    description: description.substring(0, 3000), // Cap to save tokens
+                    employmentType: getText(['[class*="employment"]', '[class*="job-type"]']),
+                    experienceLevel: getText(['[class*="experience"]', '[class*="seniority"]']),
+                    salary: getText(['[class*="salary"]', '[class*="compensation"]']),
+                };
+            });
+            
+            return details;
+        } catch (error) {
+            console.log(`   ⚠️ Deep scrape failed for ${jobUrl}: ${error.message}`);
+            return { description: '', employmentType: '', experienceLevel: '', salary: '' };
+        }
+    }
+
+    /**
+     * Sync jobs for a company: Insert new, delete stale, update existing
+     * This is the core "Snapshot-Replace" logic.
+     */
+    async syncJobs(jobs, companyName, companyId) {
+        // 1. Build a Set of all live job links from this crawl
+        const liveLinkSet = new Set(jobs.map(j => j.link));
+
+        // 2. Get all existing jobs for this company from DB
+        const existingJobs = await Job.find({ companyId }).select('link').lean();
+        const existingLinkSet = new Set(existingJobs.map(j => j.link));
+
+        // 3. Determine new jobs (in live but not in DB)
+        const newJobs = jobs.filter(j => !existingLinkSet.has(j.link));
+
+        // 4. Insert new jobs
+        let insertedCount = 0;
+        for (const job of newJobs) {
+            try {
+                await Job.create({
+                    title: job.title,
+                    company: companyName,
+                    companyId: companyId,
+                    link: job.link,
+                    location: job.location,
+                    sourceUrl: job.sourceUrl,
+                    description: job.description || '',
+                    employmentType: job.employmentType || '',
+                    experienceLevel: job.experienceLevel || '',
+                    salary: job.salary || '',
+                    relevanceScore: job.relevanceScore || 0,
+                    matchReason: job.matchReason || '',
+                    keywords: job.keywords || [],
+                    isFresh: true,
+                    detectedAt: new Date(),
+                    lastSeenAt: new Date(),
+                    source: job.source || 'career_page'
+                });
+                insertedCount++;
+                console.log(`💾 Saved new: ${job.title} @ ${companyName} (Score: ${job.relevanceScore})`);
             } catch (error) {
-                // Likely duplicate key error, skip silently
                 if (error.code !== 11000) {
-                    console.error(`⚠️ NightCrawler: Error saving job:`, error.message);
+                    console.error(`⚠️ Error saving job:`, error.message);
                 }
             }
         }
 
-        return savedCount;
+        // 5. Delete stale jobs (in DB but not in live snapshot)
+        // Safety: Only delete if we actually found SOME jobs or at least successfully scanned the URL
+        // If the scrape returned 0 but no error occurred, it might mean the company has 0 jobs currently.
+        const deletedCount = await Job.deleteStaleJobs(companyId, liveLinkSet);
+        if (deletedCount > 0) {
+            console.log(`🗑️ Removed ${deletedCount} stale jobs from ${companyName}`);
+        }
+
+        // 6. Update lastSeenAt for jobs that are still live
+        await Job.touchActiveJobs(companyId, liveLinkSet);
+
+        return { insertedCount, deletedCount };
     }
 
     /**
@@ -428,6 +496,7 @@ class NightCrawler {
             await page.setViewport({ width: 1920, height: 1080 });
 
             let totalJobsFound = 0;
+            let totalJobsRemoved = 0;
             let companiesScanned = 0;
 
             // Iterate Companies
@@ -451,7 +520,17 @@ class NightCrawler {
                             company._id // Pass Company ID
                         );
 
-                        console.log(`   🔍 Found ${rawJobs.length} raw jobs, running AI Filter...`);
+                        console.log(`   🔍 Found ${rawJobs.length} raw jobs. Deep scraping top limits...`);
+
+                        // NEW: Deep scrape top N jobs for full descriptions
+                        const DEEP_LIMIT = parseInt(process.env.DEEP_SCRAPE_LIMIT) || 20;
+                        const jobsToDeepScrape = rawJobs.slice(0, DEEP_LIMIT);
+                        
+                        for (const job of jobsToDeepScrape) {
+                            const details = await this.deepScrapeJob(page, job.link);
+                            Object.assign(job, details);
+                            await this.randomDelay(1, 3);
+                        }
 
                         let filteredJobs = [];
 
@@ -461,8 +540,9 @@ class NightCrawler {
                                 ? company.customPersona
                                 : settings.userPersona;
 
-                            filteredJobs = await AIFilter.filterJobs(rawJobs, persona);
-                            console.log(`   🤖 AI Filter Approved: ${filteredJobs.length}/${rawJobs.length}`);
+                            // We only filter the deeply scraped jobs to avoid scoring jobs with no description
+                            filteredJobs = await AIFilter.filterJobs(jobsToDeepScrape, persona);
+                            console.log(`   🤖 AI Filter Approved: ${filteredJobs.length}/${jobsToDeepScrape.length}`);
                         } catch (aiError) {
                             console.error('   ❌ AI Filter failed, falling back to Regex:', aiError.message);
 
@@ -473,8 +553,8 @@ class NightCrawler {
 
                             console.log(`   ⚠️ Using Regex Fallback with tags: ${fallbackTags.join(', ')}`);
 
-                            filteredJobs = rawJobs.filter(job => this.matchesKeywords(job.title, fallbackTags));
-                            console.log(`   ⚠️ Regex Fallback Approved: ${filteredJobs.length}/${rawJobs.length}`);
+                            filteredJobs = jobsToDeepScrape.filter(job => this.matchesKeywords(job.title, fallbackTags));
+                            console.log(`   ⚠️ Regex Fallback Approved: ${filteredJobs.length}/${jobsToDeepScrape.length}`);
                         }
 
                         // If AI returns 0 but regex would have returned something (Safety Check?)
@@ -484,8 +564,9 @@ class NightCrawler {
                             console.log('   ⚠️ No jobs matched criteria.');
                         }
 
-                        const savedCount = await this.saveJobs(filteredJobs, company.name);
-                        totalJobsFound += savedCount;
+                        const { insertedCount, deletedCount } = await this.syncJobs(filteredJobs, company.name, company._id);
+                        totalJobsFound += insertedCount;
+                        totalJobsRemoved += deletedCount;
 
                     } catch (error) {
                         console.error(`❌ NightCrawler: Failed to scrape ${url}:`, error.message);
@@ -508,9 +589,66 @@ class NightCrawler {
                 }
             }
 
+            // ============ PHASE 2: External Sources ============
+            try {
+                const multiSource = require('./sources');
+                if (multiSource) {
+                    console.log('\n============================================');
+                    console.log('🌐 STARTING EXTERNAL SOURCES CRAWL');
+                    console.log('============================================');
+                    
+                    for (const query of settings.searchQueries || []) {
+                        for (const location of settings.preferredLocations || ['']) {
+                            const externalJobs = await multiSource.searchAll({ query, location });
+                            
+                            // Filter with AI
+                            const filtered = await AIFilter.filterJobs(externalJobs, settings.userPersona);
+                            
+                            // Insert external jobs without company ID (null) to distinguish from career pages
+                            // We don't delete stale jobs here because these are aggregated search results, not a complete snapshot of a company
+                            for (const job of filtered) {
+                                try {
+                                    // Basic deduplication for external jobs by link
+                                    const exists = await Job.findOne({ link: job.link });
+                                    if (!exists) {
+                                        await Job.create({
+                                            title: job.title,
+                                            company: job.company,
+                                            link: job.link,
+                                            location: job.location,
+                                            description: job.description || '',
+                                            employmentType: job.employmentType || '',
+                                            experienceLevel: job.experienceLevel || '',
+                                            salary: job.salary || '',
+                                            relevanceScore: job.relevanceScore || 0,
+                                            matchReason: job.matchReason || '',
+                                            isFresh: true,
+                                            detectedAt: new Date(),
+                                            lastSeenAt: new Date(),
+                                            source: job.source
+                                        });
+                                        totalJobsFound++;
+                                        console.log(`💾 Saved external: ${job.title} @ ${job.company} (Score: ${job.relevanceScore})`);
+                                    } else {
+                                        // Update lastSeenAt if it already exists
+                                        exists.lastSeenAt = new Date();
+                                        await exists.save();
+                                    }
+                                } catch (err) {
+                                    if (err.code !== 11000) console.error(`⚠️ Error saving external job: ${err.message}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (extError) {
+                console.error('⚠️ Error during external sources crawl:', extError.message);
+            }
+
             // Update log with results
             log.urlsScanned = companiesScanned;
             log.jobsFound = totalJobsFound;
+            log.jobsRemoved = totalJobsRemoved;
             log.status = 'completed';
             log.duration = Date.now() - startTime;
             await log.save();
@@ -518,6 +656,7 @@ class NightCrawler {
             console.log(`\n🎉 NightCrawler: Batch complete!`);
             console.log(`   🏢 Companies scanned: ${companiesScanned}`);
             console.log(`   💼 New jobs found: ${totalJobsFound}`);
+            console.log(`   🗑️ Stale jobs removed: ${totalJobsRemoved}`);
             console.log(`   ⏱️ Duration: ${Math.round(log.duration / 1000)}s`);
             console.log(`   ❌ Errors: ${log.crawlErrors.length}`);
 

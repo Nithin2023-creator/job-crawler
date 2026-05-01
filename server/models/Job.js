@@ -42,6 +42,43 @@ const JobSchema = new mongoose.Schema({
     sourceUrl: {
         type: String,  // The career page URL where this was found
         trim: true
+    },
+    description: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    employmentType: {
+        type: String,   // "Full-time", "Internship", "Contract", etc.
+        trim: true,
+        default: ''
+    },
+    experienceLevel: {
+        type: String,   // "Entry", "Mid", "Senior", "Lead"
+        trim: true,
+        default: ''
+    },
+    salary: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    relevanceScore: {
+        type: Number,   // 0-100 AI-assigned score
+        default: 0
+    },
+    matchReason: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    source: {
+        type: String,   // "career_page", "linkedin", "indeed", "jsearch"
+        default: 'career_page'
+    },
+    lastSeenAt: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true
@@ -62,6 +99,23 @@ JobSchema.statics.getMorningBrief = async function () {
 JobSchema.statics.existsByLink = async function (link) {
     const existing = await this.findOne({ link });
     return !!existing;
+};
+
+// Static method to delete stale jobs for a company
+JobSchema.statics.deleteStaleJobs = async function (companyId, activeLinkSet) {
+    const result = await this.deleteMany({
+        companyId: companyId,
+        link: { $nin: Array.from(activeLinkSet) }
+    });
+    return result.deletedCount;
+};
+
+// Static method to touch lastSeenAt for active jobs
+JobSchema.statics.touchActiveJobs = async function (companyId, activeLinkSet) {
+    return this.updateMany(
+        { companyId: companyId, link: { $in: Array.from(activeLinkSet) } },
+        { $set: { lastSeenAt: new Date() } }
+    );
 };
 
 module.exports = mongoose.model('Job', JobSchema);

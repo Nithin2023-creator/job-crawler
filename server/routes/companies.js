@@ -83,8 +83,13 @@ router.delete('/:id', async (req, res) => {
         // Let's delete jobs for now to keep it clean, or just leave them. 
         // User didn't specify cascade delete. I'll just delete the company.
 
+        // Cascade: delete all jobs belonging to this company
+        const jobDeleteResult = await Job.deleteMany({ companyId: company._id });
         await company.deleteOne();
-        res.json({ message: 'Company deleted' });
+        res.json({ 
+            message: 'Company deleted',
+            jobsRemoved: jobDeleteResult.deletedCount
+        });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

@@ -105,6 +105,22 @@ const startServer = async () => {
             console.log('============================================');
             console.log('📅 Scheduled crawl times: 2:00 AM, 4:00 AM, 6:00 AM');
             console.log('============================================\n');
+
+            // Render Keep-Alive Ping (Self-ping every 14 minutes)
+            const SELF_URL = process.env.RENDER_EXTERNAL_URL;
+            if (SELF_URL) {
+                console.log(`💓 Keep-alive: Pinging ${SELF_URL} every 14 mins`);
+                setInterval(async () => {
+                    try {
+                        const response = await fetch(`${SELF_URL}/api/health`);
+                        if (response.ok) {
+                            console.log('💓 Keep-alive: Ping successful');
+                        }
+                    } catch (err) {
+                        console.error('💓 Keep-alive: Ping failed', err.message);
+                    }
+                }, 14 * 60 * 1000); 
+            }
         });
 
     } catch (error) {

@@ -14,6 +14,10 @@ const CrawlerLogSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    jobsRemoved: {
+        type: Number,
+        default: 0
+    },
     crawlErrors: [{
         url: {
             type: String,

@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const NightCrawler = require('../services/NightCrawler');
 const CrawlerConfig = require('../models/CrawlerConfig');
+const cleanup = require('./cleanup');
 
 /**
  * Scheduler for overnight crawling batches
@@ -46,6 +47,27 @@ class CrawlerScheduler {
                 console.error(`❌ Scheduler: Invalid cron expression: ${schedule}`);
             }
         }
+
+        // Daily cleanup at midnight
+        const cleanupSchedule = '0 0 * * *';
+        const cleanupJob = cron.schedule(cleanupSchedule, async () => {
+            console.log('\n🧹 ==========================================');
+            console.log('🧹 DAILY MAINTENANCE TRIGGERED');
+            console.log(`🧹 Time: ${new Date().toLocaleString()}`);
+            console.log('🧹 ==========================================\n');
+            try {
+                await cleanup.purgeUnseen(7);   // Remove jobs not seen in 7 days
+                await cleanup.purgeLogs(30);    // Remove logs older than 30 days
+            } catch (error) {
+                console.error('❌ Scheduler: Maintenance failed:', error.message);
+            }
+        }, {
+            scheduled: true,
+            timezone: 'Asia/Kolkata'
+        });
+
+        this.jobs.push({ schedule: cleanupSchedule, job: cleanupJob });
+        console.log(`✅ Scheduler: Registered daily maintenance job for ${cleanupSchedule}`);
 
         this.isInitialized = true;
         console.log(`⏰ Scheduler: Initialized with ${this.jobs.length} cron jobs`);

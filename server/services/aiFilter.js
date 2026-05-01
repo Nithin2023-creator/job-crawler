@@ -54,24 +54,43 @@ class AIFilter {
      * Process a single batch of jobs
      */
     async processBatch(batch, persona) {
-        // 1. Format jobs as numbered list
+        // 1. Format jobs as numbered list with rich context
         const jobListText = batch.map((job, index) => {
-            return `${index}: ${job.title} ${job.location ? `(${job.location})` : ''} - ${job.company || ''}`;
-        }).join('\n');
+            let entry = `${index}: ${job.title}`;
+            if (job.location) entry += ` | Location: ${job.location}`;
+            if (job.company) entry += ` | Company: ${job.company}`;
+            if (job.employmentType) entry += ` | Type: ${job.employmentType}`;
+            if (job.experienceLevel) entry += ` | Level: ${job.experienceLevel}`;
+            if (job.salary) entry += ` | Salary: ${job.salary}`;
+            // Include truncated description for AI context
+            if (job.description) entry += `\n   Desc: ${job.description.substring(0, 500)}`;
+            return entry;
+        }).join('\n\n');
 
         // 2. Construct Prompt
-        const systemPrompt = `You are a strict technical recruiter. 
-        Analyze the Job List and find jobs that match the Candidate Persona.
-        
-        Rules:
-        1. Return ONLY a JSON object with a single key "matchIds".
-        2. "matchIds" must be an array of integers representing the indices of matching jobs.
-        3. Be strict. If the location or role doesn't fit the persona, do not include it.
-        4. Do not output any markdown or explanation.
-        
-        Example Output: { "matchIds": [0, 4, 12] }`;
+        const systemPrompt = `You are an expert technical recruiter performing candidate-job matching.
 
-        const userMessage = `Candidate Persona: ${persona}\n\nJob List:\n${jobListText}`;
+For each job, assign a relevance score from 0 to 100 based on how well it matches the candidate.
+
+Scoring rubric:
+- 90-100: Perfect match (role, level, location, tech stack all align)
+- 70-89: Strong match (most criteria align, minor gaps)
+- 40-69: Partial match (some criteria align but significant gaps)
+- 0-39: Poor match (wrong level, field, or location)
+
+Consider these factors:
+1. Role alignment with persona's target roles
+2. Experience level match (don't suggest senior roles to freshers)
+3. Tech stack overlap
+4. Location compatibility
+5. Employment type preference
+
+Return ONLY a JSON object:
+{ "scores": [{ "id": 0, "score": 85, "reason": "brief reason" }] }
+
+Only include jobs scoring >= 40. Omit irrelevant jobs entirely.`;
+
+        const userMessage = `Candidate Persona:\n${persona}\n\nJobs:\n${jobListText}`;
 
         console.log('\n--- 📤 SENDING TO AI ---');
         console.log(userMessage);
@@ -99,16 +118,17 @@ class AIFilter {
 
         try {
             const parsed = JSON.parse(content);
-            const indices = parsed.matchIds;
+            if (!parsed.scores || !Array.isArray(parsed.scores)) return [];
 
-            if (!Array.isArray(indices)) return [];
+            const matches = parsed.scores
+                .filter(s => Number.isInteger(s.id) && s.id >= 0 && s.id < batch.length && s.score >= 40)
+                .map(s => ({
+                    ...batch[s.id],
+                    relevanceScore: s.score,
+                    matchReason: s.reason || ''
+                }));
 
-            // Map indices back to objects
-            const matches = indices
-                .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < batch.length)
-                .map(idx => batch[idx]);
-
-            console.log(`      Selected ${matches.length}/${batch.length} jobs`);
+            console.log(`      Selected ${matches.length}/${batch.length} jobs (score >= 40)`);
             return matches;
 
         } catch (e) {
