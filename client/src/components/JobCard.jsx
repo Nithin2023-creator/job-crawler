@@ -150,6 +150,7 @@ const JobCard = ({ job, onMarkViewed, compact = false }) => {
                 </a>
             </div>
         </div>
+    </div>
     );
 };
 
