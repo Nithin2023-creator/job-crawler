@@ -54,5 +54,17 @@ export const JobService = {
             method: 'PATCH'
         });
         return res.json();
+    },
+    cleanup: async (days = 7) => {
+        const res = await fetch(`${API_BASE}/jobs/cleanup?days=${days}`, {
+            method: 'POST'
+        });
+        return res.json();
+    },
+    deleteByCompany: async (companyId) => {
+        const res = await fetch(`${API_BASE}/jobs/company/${companyId}`, {
+            method: 'DELETE'
+        });
+        return res.json();
     }
 };
