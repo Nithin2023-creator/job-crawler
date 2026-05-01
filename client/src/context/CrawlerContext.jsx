@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
+import { API_BASE } from '../services/api';
 
 const CrawlerContext = createContext();
 
@@ -12,8 +13,8 @@ export const CrawlerProvider = ({ children }) => {
     const refreshData = async () => {
         try {
             const [configRes, statusRes] = await Promise.all([
-                fetch('/api/config'),
-                fetch('/api/hunt/status')
+                fetch(`${API_BASE}/config`),
+                fetch(`${API_BASE}/hunt/status`)
             ]);
 
             const configData = await configRes.json();
@@ -38,7 +39,7 @@ export const CrawlerProvider = ({ children }) => {
             // Only refresh if not in sleep mode (save bandwidth)
             // Actually we might want updates IN sleep mode to show status?
             // Let's poll gently.
-            fetch('/api/hunt/status')
+            fetch(`${API_BASE}/hunt/status`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -54,7 +55,7 @@ export const CrawlerProvider = ({ children }) => {
 
     const updateConfig = async (newConfig) => {
         try {
-            const res = await fetch('/api/config', {
+            const res = await fetch(`${API_BASE}/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newConfig)
@@ -73,7 +74,7 @@ export const CrawlerProvider = ({ children }) => {
 
     const startHunt = async () => {
         try {
-            const res = await fetch('/api/hunt/start', { method: 'POST' });
+            const res = await fetch(`${API_BASE}/hunt/start`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 setIsHunting(true);
@@ -88,7 +89,7 @@ export const CrawlerProvider = ({ children }) => {
 
     const stopHunt = async () => {
         try {
-            const res = await fetch('/api/hunt/stop', { method: 'POST' });
+            const res = await fetch(`${API_BASE}/hunt/stop`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
                 setIsHunting(false);
@@ -103,7 +104,7 @@ export const CrawlerProvider = ({ children }) => {
 
     const triggerHunt = async () => {
         try {
-            const res = await fetch('/api/hunt/trigger', { method: 'POST' });
+            const res = await fetch(`${API_BASE}/hunt/trigger`, { method: 'POST' });
             const data = await res.json();
             return data.success;
         } catch (e) {

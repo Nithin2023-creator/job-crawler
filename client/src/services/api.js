@@ -1,4 +1,15 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+const getApiBase = () => {
+    let base = import.meta.env.VITE_API_BASE_URL || '';
+    if (!base) return '/api';
+    
+    base = base.replace(/\/$/, ''); // Remove trailing slash
+    if (!base.endsWith('/api')) {
+        base += '/api';
+    }
+    return base;
+};
+
+export const API_BASE = getApiBase();
 
 export const CompanyService = {
     getAll: async () => {
