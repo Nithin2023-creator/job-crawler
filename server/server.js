@@ -24,7 +24,7 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
     'https://job-crawler-8zem.vercel.app',
-     // Your deployment
+    'https://job-crawler-adsv.vercel.app',
     process.env.FRONTEND_URL
 ].filter(Boolean);
 
